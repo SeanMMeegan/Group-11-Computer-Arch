@@ -474,65 +474,65 @@ int main(int argc, char *argv[]) {
         (PAGE_TABLE_ENTRIES * traceCount * pageTableEntryBits) / 8;
 
     /**
-     * ---------------------------------------------------------
-     * Print required output
-     * ---------------------------------------------------------
-     */
+ * ---------------------------------------------------------
+ * Print required output
+ * ---------------------------------------------------------
+ */
 
-    cout << "MILESTONE #1:  Input Parameters and Calculated Values\n";
-    cout << "Cache Simulator - CS 3853 - Team 11\n\n";
+cout << "MILESTONE #1:  Input Parameters and Calculated Values\n";
+cout << "Cache Simulator - CS 3853 - Team #11\n\n";
 
-    cout << "Trace File(s):\n";
-    for (i = 0; i < traceCount; i++) {
-        cout << "        " << traceFiles[i] << '\n';
-    }
-    cout << '\n';
+cout << "Trace File(s):\n";
+for (i = 0; i < traceCount; i++) {
+    cout << "        " << traceFiles[i] << '\n';
+}
+cout << '\n';
 
-    cout << "***** Cache Input Parameters *****\n\n";
-    cout << left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
-    cout << left << setw(32) << "Block Size:" << blockSize << " bytes\n";
-    cout << left << setw(32) << "Associativity:" << associativity << '\n';
-    cout << left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
-    cout << left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
-    cout << left << setw(32) << "Percent Memory Used by System:"
-         << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
+cout << "***** Cache Input Parameters *****\n\n";
+cout << left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
+cout << left << setw(32) << "Block Size:" << blockSize << " bytes\n";
+cout << left << setw(32) << "Associativity:" << associativity << '\n';
+cout << left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
+cout << left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
+cout << left << setw(32) << "Percent Memory Used by System:"
+     << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
 
-    cout << left << setw(32) << "Instructions / Time Slice:";
-    if (instructionsPerTimeSlice == -1) {
-        cout << "max\n";
-    }
-    else {
-        cout << instructionsPerTimeSlice << '\n';
-    }
+cout << left << setw(32) << "Instructions / Time Slice:";
+if (instructionsPerTimeSlice == -1) {
+    cout << "max\n";
+}
+else {
+    cout << instructionsPerTimeSlice << '\n';
+}
 
-    cout << "\n***** Cache Calculated Values *****\n\n";
-    cout << left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
-    cout << left << setw(32) << "Tag Size:" << tagBits
-         << " bits        (based on actual physical memory)\n";
-    cout << left << setw(32) << "Index Size:" << indexBits << " bits\n";
-    cout << left << setw(32) << "Total # Rows:" << totalRows << '\n';
-    cout << left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
-    cout << left << setw(32) << "Implementation Memory Size:"
-         << fixed << setprecision(2) << implementationMemorySizeKB
-         << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
-    cout << left << setw(32) << "Cost:"
-         << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
+cout << "\n***** Cache Calculated Values *****\n\n";
+cout << left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
 
-    cout << "\n***** Physical Memory Calculated Values *****\n\n";
-    cout << left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
-    cout << left << setw(32) << "Number of Pages for System:"
-         << numberOfPagesForSystem
-         << "         ( " << fixed << setprecision(2)
-         << (percentUsedByOS / 100.0)
-         << " * " << numberOfPhysicalPages
-         << " = " << numberOfPagesForSystem << " )\n";
-    cout << left << setw(32) << "Size of Page Table Entry:"
-         << pageTableEntryBits
-         << " bits        (1 valid bit, " << physicalPageBits << " for PhysPage)\n";
-    cout << left << setw(32) << "Total RAM for Page Table(s):"
-         << totalRAMForPageTables
-         << " bytes  (512K entries * " << traceCount
-         << " .trc files * " << pageTableEntryBits << " / 8)\n";
+/* Tag size is based on actual physical memory */
+cout << left << setw(32) << "Tag Size:" << tagBits << " bits\n";
 
+cout << left << setw(32) << "Index Size:" << indexBits << " bits\n";
+cout << left << setw(32) << "Total # Rows:" << totalRows << '\n';
+cout << left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
+cout << left << setw(32) << "Implementation Memory Size:"
+     << fixed << setprecision(2) << implementationMemorySizeKB
+     << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
+cout << left << setw(32) << "Cost:"
+     << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
+
+cout << "\n***** Physical Memory Calculated Values *****\n\n";
+cout << left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
+
+/* numberOfPagesForSystem = (percentUsedByOS / 100.0) * numberOfPhysicalPages */
+cout << left << setw(32) << "Number of Pages for System:"
+     << numberOfPagesForSystem << '\n';
+
+/* pageTableEntryBits = 1 valid bit + physicalPageBits */
+cout << left << setw(32) << "Size of Page Table Entry:"
+     << pageTableEntryBits << " bits\n";
+
+/* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
+cout << left << setw(32) << "Total RAM for Page Table(s):"
+     << totalRAMForPageTables << " bytes\n";
     return 0;
 }
