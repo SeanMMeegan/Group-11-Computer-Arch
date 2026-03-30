@@ -21,12 +21,8 @@ g++ -o team11_VMCacheSim main.cpp
 - `-p` Physical memory in MB (128–4096, power of 2)
 - `-u` Percent of memory used by OS (0–100)
 - `-n` Instructions per time slice (`-1` for max)
-- `-f` Trace file (1–3 allowed)
+- `-f` Trace file (1–3)
 
-## Output Files
-- Team_11_Sim_1_M#1.txt
-- Team_11_Sim_2_M#1.txt
-- Team_11_Sim_3_M#1.txt
 
 ## Notes
 - Page size is 4 KB
