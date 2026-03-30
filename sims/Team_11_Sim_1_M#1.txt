@@ -17,7 +17,7 @@ Instructions / Time Slice:      50
 ***** Cache Calculated Values *****
 
 Total # Blocks:                 16384
-Tag Size:                       11 bits        (based on actual physical memory)
+Tag Size:                       11 bits        
 Index Size:                     14 bits
 Total # Rows:                   16384
 Overhead Size:                  24576 bytes
@@ -27,6 +27,6 @@ Cost:                           $10.64 @ $0.07 per KB
 ***** Physical Memory Calculated Values *****
 
 Number of Physical Pages:       65536
-Number of Pages for System:     16384         ( 0.25 * 65536 = 16384 )
-Size of Page Table Entry:       17 bits        (1 valid bit, 16 for PhysPage)
-Total RAM for Page Table(s):    1114112 bytes  (512K entries * 1 .trc files * 17 / 8)
+Number of Pages for System:     16384         
+Size of Page Table Entry:       17 bits        
+Total RAM for Page Table(s):    1114112 bytes  
