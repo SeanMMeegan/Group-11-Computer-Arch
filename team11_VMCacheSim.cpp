@@ -1,5 +1,4 @@
-/**
-* @file team11_VMCacheSim.cpp
+/** @file team11_VMCacheSim.cpp
 * @author Group 11 - Meegan, Sean M. | Guerra, Sage | Hipolito, Kristian | Teschan, Addison K.
  * @brief CS 3853 Cache Simulator - Milestone #1
  *
@@ -50,10 +49,13 @@
  * - The program should accept 1, 2, or 3 trace files. guess we use these later
  */
 
+#include <cstdio>
 #include <cstdlib>
 #include <iomanip> //for easier output formatting
 #include <iostream>
+#include <iterator>
 #include <string>
+#include <fstream>
 
 using namespace std;
 
@@ -235,8 +237,20 @@ int main(int argc, char *argv[]) {
     /** @brief Total RAM used by all page tables in bytes */
     int totalRAMForPageTables = 0;
 
+    /** @brief Total pages available to the user */
+    int totalPagesForUser = 0;
+
     /** @brief Loop variable for parsing arguments */
     int i = 0;
+
+    /** @brief Total times address is already mapped*/
+    int totalPageTableHits = 0;
+
+    /** @brief Total times address mapped to a page not in use */
+    int totalPagesFromFree = 0;
+
+    /** @brief Total times where no physical page is available */
+    int totalPageFaults = 0;
 
     /**
      * ---------------------------------------------------------
@@ -473,7 +487,26 @@ int main(int argc, char *argv[]) {
     totalRAMForPageTables =
         (PAGE_TABLE_ENTRIES * traceCount * pageTableEntryBits) / 8;
 
-    /**
+    totalPagesForUser = numberOfPhysicalPages - numberOfPagesForSystem;
+
+/**
+ * ---------------------------------------------------------
+ * Read Trace Files - WIP
+ * ---------------------------------------------------------
+ */
+    int virtualPagesMapped = 0;
+    string traceLine;
+
+    for (size_t i = 0; i < size(traceFiles); i++) {
+	cout << traceFiles[i] << endl;
+    	ifstream traceFile(traceFiles[i]);
+	while(getline(traceFile, traceLine)) {
+		//Do stuff here
+	}
+	traceFile.close();
+    }
+
+/**
  * ---------------------------------------------------------
  * Print required output
  * ---------------------------------------------------------
@@ -534,5 +567,27 @@ cout << left << setw(32) << "Size of Page Table Entry:"
 /* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
 cout << left << setw(32) << "Total RAM for Page Table(s):"
      << totalRAMForPageTables << " bytes\n";
+
+cout << left << setw(32) << "\n***** VIRTUAL MEMORY SIMULATION RESULTS *****\n" << endl;
+cout << left << setw(32) << "Physical Pages Used By SYSTEM: " << numberOfPagesForSystem << endl;
+cout << left << setw(32) << "Pages Available to User: " << totalPagesForUser << endl ;
+cout << left << setw(32) << "Virtual Pages Mapped: " << endl;
+cout << "\t------------------------------" << endl;
+cout << "\tPage Table Hits: " << endl << endl;
+cout << "\tPages from Free: " << endl << endl;
+cout << "\tTotal Page Faults: " << endl << endl;
+cout << "Page Table Usage Per Process:" << endl;
+cout << "------------------------------" << endl;
+for (size_t i = 0; i < size(traceFiles); i++) {
+	if (size(traceFiles[i]) != 0) {
+		cout << "[" << i << "] " << traceFiles[i] << ":" << endl;
+		cout << "\tUsed Page Table Entries:" << endl;
+		cout << "\tPage Table Wasted: " << endl;
+	}
+}
     return 0;
 }
+
+
+
+
