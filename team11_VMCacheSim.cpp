@@ -56,6 +56,7 @@
 #include <iterator>
 #include <string>
 #include <fstream>
+#include <vector>
 
 using namespace std;
 
@@ -78,6 +79,14 @@ const int PAGE_SIZE = 4096;
  * 512K = 524288
  */
 const int PAGE_TABLE_ENTRIES = 524288;
+
+/**
+ * @brief an object to hold information about each page table
+ */
+struct PageTableEntry {
+        bool valid;
+        int physicalPage;
+    };
 
 /**
  * @brief Checks whether a number is a power of 2.
@@ -127,6 +136,50 @@ void printUsageAndExit() {
 }
 
 /**
+ * @brief Universal method call to validate and check through the information in each page rather than have almost identical logic in each page check and the dist and src checks
+ *  this function accesses a page, checks the bounds and if the page has been mapped or not
+ *  then it increments the table hits or the page faults otherwise it allocates a new page
+ * 
+ */
+void pageTableCheck (int proc, int virtualPage,
+                vector<vector<PageTableEntry>> &pageTables,
+                vector<int> &freePages,
+                int &totalPageTableHits,
+                int &totalPagesFromFree,
+                int &totalPageFaults,
+                int &virtualPagesMapped,
+                int usedEntries[]){
+    //prevents out of bounds to send it to the next page
+    if(virtualPage >= PAGE_TABLE_ENTRIES)
+        return;
+    //checks if the page has already been mapped
+    if(pageTables[proc][virtualPage].valid)
+        totalPageTableHits++;
+    //else it allocates a new page
+    else{
+        virtualPagesMapped++;
+        //checks to see if there is space
+        if(!freePages.empty()){
+            //removes a freePage
+            int physicalPage = freePages.back();
+            freePages.pop_back();
+
+            //updates the pageTable to add the new page
+            pageTables[proc][virtualPage].valid = true;
+            pageTables[proc][virtualPage].physicalPage = physicalPage;
+
+            usedEntries[proc]++;
+
+            totalPagesFromFree++;
+        }
+        //adds a page fault for when freepages is empty
+        else{
+            totalPageFaults++;
+        }
+    }
+}
+
+/**
  * @brief Main driver for Milestone #1.
  *
  * This program:
@@ -142,7 +195,6 @@ int main(int argc, char *argv[]) {
      * Input variables
      * ---------------------------------------------------------
      */
-
     /** @brief Cache size in KB from -s */
     int cacheSizeKB = 0;
 
@@ -251,6 +303,16 @@ int main(int argc, char *argv[]) {
 
     /** @brief Total times where no physical page is available */
     int totalPageFaults = 0;
+
+    /**
+     * ---------------------------------------------------------
+     * Virtual Memory Variables
+     * ---------------------------------------------------------
+     */
+
+    
+
+    vector<int> freePages;
 
     /**
      * ---------------------------------------------------------
@@ -488,106 +550,182 @@ int main(int argc, char *argv[]) {
         (PAGE_TABLE_ENTRIES * traceCount * pageTableEntryBits) / 8;
 
     totalPagesForUser = numberOfPhysicalPages - numberOfPagesForSystem;
+    /**
+     * ---------------------------------------------------------
+     * Virtual Memory Calculations
+     * ---------------------------------------------------------
+     */
+
+     //creates a page table entry for each of PAGE_TABLE_ENTRIES
+    vector<vector<PageTableEntry>> pageTables(traceCount,vector<PageTableEntry>(PAGE_TABLE_ENTRIES));
+    //creates a list of pages available to each program
+    for(i = numberOfPagesForSystem; i< numberOfPhysicalPages; i++){
+        freePages.push_back(i);
+    }
+
 
 /**
  * ---------------------------------------------------------
  * Read Trace Files - WIP
  * ---------------------------------------------------------
  */
+    int usedEntries[3] = {0};
     int virtualPagesMapped = 0;
     string traceLine;
+    //loops for each trace file
+    for (int i = 0; i < traceCount; i++) {
+        std::cout<< traceFiles[i] << endl;
+        //checks to see if the file was grabbed correctly
+        ifstream traceFile(traceFiles[i]);
+        if(!traceFile){
+            cerr << "error" << ": " << traceFiles[i] << endl;
+            return 1;
+        }
+        // loop to read each line from a trace file
+        while (getline(traceFile, traceLine)) {
+            //handles EIP  lines
+            if(traceLine[0] == 'E'){
+                int length;
+                unsigned int addr;
+                //reads a line from the tracefiles and allocatess tghe information to the length and addr variables
+                //this if statement is also used to limit each instruction to 2 pages max per instruction to increase efficiency
+                if(sscanf(traceLine.c_str(), "EIP (%d): %x", &length, &addr) == 2){
 
-    for (size_t i = 0; i < size(traceFiles); i++) {
-	cout << traceFiles[i] << endl;
-    	ifstream traceFile(traceFiles[i]);
-	while(getline(traceFile, traceLine)) {
-		//Do stuff here
-	}
-	traceFile.close();
+                    int firstPage = addr / PAGE_SIZE;
+                    int lastPage  = (addr + length - 1) / PAGE_SIZE;
+                    //default page check for every instruction
+                    pageTableCheck(i, firstPage, pageTables, freePages,
+                            totalPageTableHits, totalPagesFromFree,
+                            totalPageFaults, virtualPagesMapped,
+                            usedEntries);
+
+                    // check second page if instruction crosses page boundary
+                    if(firstPage != lastPage){
+                        pageTableCheck(i, lastPage, pageTables, freePages,
+                                totalPageTableHits, totalPagesFromFree,
+                                totalPageFaults, virtualPagesMapped,
+                                usedEntries);
+                    }                        
+                }
+            }
+            //handles dstM and secM lines
+            else if(traceLine[0] == 'd'){
+                unsigned int dstAddr, srcAddr;
+                //grabs the information for dstM and srcM
+                sscanf(traceLine.c_str(), "dstM: %x %*s srcM: %x %*s", &dstAddr, &srcAddr);
+                //handles the first part of the secondary line (distM)
+                if(dstAddr != 0){
+                    int virtualPage = dstAddr / PAGE_SIZE;
+
+                    pageTableCheck(i, virtualPage, pageTables, freePages,
+                            totalPageTableHits, totalPagesFromFree,
+                            totalPageFaults, virtualPagesMapped,
+                            usedEntries);
+                }
+                //handles the second part of the secondary lines(srcM)
+                if(srcAddr != 0){
+                    int virtualPage = srcAddr / PAGE_SIZE;
+
+                    pageTableCheck(i, virtualPage, pageTables, freePages,
+                            totalPageTableHits, totalPagesFromFree,
+                            totalPageFaults, virtualPagesMapped,
+                            usedEntries);
+                }
+            }
+        }
+        traceFile.close();
     }
 
+    /**
+     * Track Pages wasted by looping once for each trace file and calculating unused entries 
+     *   by subtracting usedentries from the total
+     */
+
+    int wastedBytes[3] = {0};
+
+    for(int i = 0; i < traceCount; i++){
+        int unusedEntries = PAGE_TABLE_ENTRIES - usedEntries[i];
+        wastedBytes[i] = (unusedEntries * pageTableEntryBits)/8;
+    }
+    
 /**
  * ---------------------------------------------------------
  * Print required output
  * ---------------------------------------------------------
  */
 
-cout << "MILESTONE #1:  Input Parameters and Calculated Values\n";
-cout << "Cache Simulator - CS 3853 - Team #11\n\n";
+    std::cout<< "MILESTONE #1:  Input Parameters and Calculated Values\n";
+    std::cout<< "Cache Simulator - CS 3853 - Team #11\n\n";
 
-cout << "Trace File(s):\n";
-for (i = 0; i < traceCount; i++) {
-    cout << "        " << traceFiles[i] << '\n';
-}
-cout << '\n';
+    std::cout<< "Trace File(s):\n";
+    for (i = 0; i < traceCount; i++) {
+        std::cout<< "        " << traceFiles[i] << '\n';
+    }
+    std::cout<< '\n';
 
-cout << "***** Cache Input Parameters *****\n\n";
-cout << left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
-cout << left << setw(32) << "Block Size:" << blockSize << " bytes\n";
-cout << left << setw(32) << "Associativity:" << associativity << '\n';
-cout << left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
-cout << left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
-cout << left << setw(32) << "Percent Memory Used by System:"
-     << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
+    std::cout<< "***** Cache Input Parameters *****\n\n";
+    std::cout<< left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
+    std::cout<< left << setw(32) << "Block Size:" << blockSize << " bytes\n";
+    std::cout<< left << setw(32) << "Associativity:" << associativity << '\n';
+    std::cout<< left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
+    std::cout<< left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
+    std::cout<< left << setw(32) << "Percent Memory Used by System:"
+        << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
 
-cout << left << setw(32) << "Instructions / Time Slice:";
-if (instructionsPerTimeSlice == -1) {
-    cout << "max\n";
-}
-else {
-    cout << instructionsPerTimeSlice << '\n';
-}
+    std::cout<< left << setw(32) << "Instructions / Time Slice:";
+    if (instructionsPerTimeSlice == -1) {
+        std::cout<< "max\n";
+    }
+    else {
+        std::cout<< instructionsPerTimeSlice << '\n';
+    }
 
-cout << "\n***** Cache Calculated Values *****\n\n";
-cout << left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
+    std::cout<< "\n***** Cache Calculated Values *****\n\n";
+    std::cout<< left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
 
-/* Tag size is based on actual physical memory */
-cout << left << setw(32) << "Tag Size:" << tagBits << " bits\n";
+    /* Tag size is based on actual physical memory */
+    std::cout<< left << setw(32) << "Tag Size:" << tagBits << " bits\n";
 
-cout << left << setw(32) << "Index Size:" << indexBits << " bits\n";
-cout << left << setw(32) << "Total # Rows:" << totalRows << '\n';
-cout << left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
-cout << left << setw(32) << "Implementation Memory Size:"
-     << fixed << setprecision(2) << implementationMemorySizeKB
-     << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
-cout << left << setw(32) << "Cost:"
-     << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
+    std::cout<< left << setw(32) << "Index Size:" << indexBits << " bits\n";
+    std::cout<< left << setw(32) << "Total # Rows:" << totalRows << '\n';
+    std::cout<< left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
+    std::cout<< left << setw(32) << "Implementation Memory Size:"
+        << fixed << setprecision(2) << implementationMemorySizeKB
+        << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
+    std::cout<< left << setw(32) << "Cost:"
+        << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
 
-cout << "\n***** Physical Memory Calculated Values *****\n\n";
-cout << left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
+    std::cout<< "\n***** Physical Memory Calculated Values *****\n\n";
+    std::cout<< left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
 
-/* numberOfPagesForSystem = (percentUsedByOS / 100.0) * numberOfPhysicalPages */
-cout << left << setw(32) << "Number of Pages for System:"
-     << numberOfPagesForSystem << '\n';
+    /* numberOfPagesForSystem = (percentUsedByOS / 100.0) * numberOfPhysicalPages */
+    std::cout<< left << setw(32) << "Number of Pages for System:"
+        << numberOfPagesForSystem << '\n';
 
-/* pageTableEntryBits = 1 valid bit + physicalPageBits */
-cout << left << setw(32) << "Size of Page Table Entry:"
-     << pageTableEntryBits << " bits\n";
+    /* pageTableEntryBits = 1 valid bit + physicalPageBits */
+    std::cout<< left << setw(32) << "Size of Page Table Entry:"
+        << pageTableEntryBits << " bits\n";
 
-/* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
-cout << left << setw(32) << "Total RAM for Page Table(s):"
-     << totalRAMForPageTables << " bytes\n";
+    /* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
+    std::cout<< left << setw(32) << "Total RAM for Page Table(s):"
+        << totalRAMForPageTables << " bytes\n";
 
-cout << left << setw(32) << "\n***** VIRTUAL MEMORY SIMULATION RESULTS *****\n" << endl;
-cout << left << setw(32) << "Physical Pages Used By SYSTEM: " << numberOfPagesForSystem << endl;
-cout << left << setw(32) << "Pages Available to User: " << totalPagesForUser << endl ;
-cout << left << setw(32) << "Virtual Pages Mapped: " << endl;
-cout << "\t------------------------------" << endl;
-cout << "\tPage Table Hits: " << endl << endl;
-cout << "\tPages from Free: " << endl << endl;
-cout << "\tTotal Page Faults: " << endl << endl;
-cout << "Page Table Usage Per Process:" << endl;
-cout << "------------------------------" << endl;
-for (size_t i = 0; i < size(traceFiles); i++) {
-	if (size(traceFiles[i]) != 0) {
-		cout << "[" << i << "] " << traceFiles[i] << ":" << endl;
-		cout << "\tUsed Page Table Entries:" << endl;
-		cout << "\tPage Table Wasted: " << endl;
-	}
-}
+    std::cout<< left << setw(32) << "\n***** VIRTUAL MEMORY SIMULATION RESULTS *****\n" << endl;
+    std::cout<< left << setw(32) << "Physical Pages Used By SYSTEM: " << numberOfPagesForSystem << endl;
+    std::cout<< left << setw(32) << "Pages Available to User: " << totalPagesForUser << endl ;
+    std::cout<< left << setw(32) << "Virtual Pages Mapped: " << virtualPagesMapped << endl;
+    std::cout<< "\t------------------------------" << endl;
+    std::cout<< "\tPage Table Hits: " << totalPageTableHits << endl << endl;
+    std::cout<< "\tPages from Free: " << totalPagesFromFree << endl << endl;
+    std::cout<< "\tTotal Page Faults: " << totalPageFaults << endl << endl;
+    std::cout<< "Page Table Usage Per Process:" << endl;
+    std::cout<< "------------------------------" << endl;
+    for (int i = 0; i < traceCount; i++) {
+        if (!traceFiles[i].empty()) {
+            std::cout<< "[" << i << "] " << traceFiles[i] << ": " << endl;
+            std::cout<< "\tUsed Page Table Entries: " << usedEntries[i] << endl;
+            std::cout<< "\tPage Table Wasted: " << wastedBytes[i] << endl;
+        }
+    }
     return 0;
 }
-
-
-
-
