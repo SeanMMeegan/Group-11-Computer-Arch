@@ -190,9 +190,6 @@ void pageTableCheck (int proc, int virtualPage,
  * 5. Prints all results in the required format
  */
 int main(int argc, char *argv[]) {
-
-    ios::sync_with_stdio(false);
-    cin.tie(nullptr);
     /**
      * ---------------------------------------------------------
      * Input variables
