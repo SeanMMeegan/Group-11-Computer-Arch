@@ -66,6 +66,7 @@
 #include <iterator>
 #include <string>
 #include <fstream>
+#include <vector>
 
 using namespace std;
 
@@ -102,14 +103,14 @@ const int PAGE_TABLE_ENTRIES = 524288;
  */
 
 struct PageTableEntry {
-    bool valid;
-    unsigned int phyPageNumber;
+    bool valid = false;
+    unsigned int phyPageNumber = 0;
 };
 
 struct ProcessInfo {
     string traceFileName;
     PageTableEntry pageTable[PAGE_TABLE_ENTRIES];
-    unsigned int usedPageTableEntries;
+    unsigned int usedPageTableEntries = 0;
 };
 
 // Global process array
@@ -167,6 +168,66 @@ void printUsageAndExit() {
     cerr << "               -r <rr|rnd> -p <physical memory MB> -u <percent used by OS>\n";
     cerr << "               -n <instructions per time slice> -f <trace1> [-f <trace2>] [-f <trace3>]\n";
     exit(1);
+}
+
+/**
+ *@brief Convert hex to unsigned int
+ */
+unsigned int hexToUInt(const string &hexStr) {
+    unsigned int value = 0;
+    sscanf(hexStr.c_str(), "%x", &value);
+    return value;
+}
+
+/**
+ * helper for address processing
+ */
+void processAddress(unsigned int addr,
+                    ProcessInfo &process,
+                    vector<unsigned int> &freePages,
+                    int &virtualPagesMapped,
+                    int &totalPageTableHits,
+                    int &totalPagesFromFree,
+                    int &totalPageFaults) {
+    unsigned int virtualPage = addr / PAGE_SIZE;
+
+    // count every valid address access
+    virtualPagesMapped++;
+
+    // already mapped
+    if (process.pageTable[virtualPage].valid) {
+        totalPageTableHits++;
+        return;
+    }
+
+    // not mapped yet
+    if (!freePages.empty()) {
+        unsigned int physicalPage = freePages.back();
+        freePages.pop_back();
+
+        process.pageTable[virtualPage].valid = true;
+        process.pageTable[virtualPage].phyPageNumber = physicalPage;
+        process.usedPageTableEntries++;
+
+        totalPagesFromFree++;
+    } else {
+        totalPageFaults++;
+    }
+}
+
+/**
+ * @brief free process pages after reading a tradce file
+ * @param process
+ * @param freePages
+ */
+void freeProcessPages(ProcessInfo &process, vector<unsigned int> &freePages) {
+    for (size_t v = 0; v < PAGE_TABLE_ENTRIES; v++) {
+        if (process.pageTable[v].valid) {
+            freePages.push_back(process.pageTable[v].phyPageNumber);
+            process.pageTable[v].valid = false;
+            process.pageTable[v].phyPageNumber = 0;
+        }
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -287,6 +348,10 @@ int main(int argc, char *argv[]) {
 
     /** @brief Total times where no physical page is available */
     int totalPageFaults = 0;
+
+    // vector for free pages
+    vector<unsigned int> freePages;
+
 
     /**
      * ---------------------------------------------------------
@@ -517,6 +582,13 @@ int main(int argc, char *argv[]) {
 
     totalPagesForUser = numberOfPhysicalPages - numberOfPagesForSystem;
 
+    /**
+     *fill the free pages
+     */
+    for (unsigned int p = numberOfPagesForSystem; p < (unsigned int) numberOfPhysicalPages; p++) {
+        freePages.push_back(p);
+    }
+
     /*--------------------------------------------------------------
      *
      * Setup proccess & page tables
@@ -546,24 +618,16 @@ int main(int argc, char *argv[]) {
 
 
     /**
-     * ---------------------------------------------------------
+     * -----------------------------------------------------------------------------------------------------------------
      * Read Trace Files
-     * ---------------------------------------------------------
+     * -----------------------------------------------------------------------------------------------------------------ra
      */
-
-    /*
-    * TODO: Add parsing for dstM and srcM memory accesses
-    * Currently only processing EIP (instruction fetches)
-    * dstM and srcM should be included when data is valid (not "--------"
-    */
 
     int virtualPagesMapped = 0;
     string traceLine;
 
     // start the loop
     for (size_t i = 0; i < traceCount; i++) {
-        // cout << traceFiles[i] << endl;
-
         ifstream traceFile(traceFiles[i]);
 
         if (!traceFile) {
@@ -572,124 +636,129 @@ int main(int argc, char *argv[]) {
         }
 
         while (getline(traceFile, traceLine)) {
-            // Read one line at a time from tracefile
-            //look for "EIP" lines
+            // EIP line
             if (traceLine.find("EIP") == 0) {
-                //Extract the 8 char hex address
-                // ex: "EIP (04): 7c809767...."
-                //              ^starts @ index 10
+                // Example: EIP (04): 7c809767 ...
                 string hexAddr = traceLine.substr(10, 8);
+                unsigned int addr = hexToUInt(hexAddr);
 
-                //variable to store converted address
-                unsigned int addr = 0;
+                processAddress(addr,
+                               processes[i],
+                               freePages,
+                               virtualPagesMapped,
+                               totalPageTableHits,
+                               totalPagesFromFree,
+                               totalPageFaults);
+            }
+            // dstM / srcM line
+            else if (traceLine.find("dstM:") == 0) {
+                // fixed-format parsing
+                string dstAddrStr = traceLine.substr(6, 8);
+                string dstDataStr = traceLine.substr(15, 8);
 
-                // Convert hex string to an int
-                // sscanf converts hex to in automatically
-                //using c style string for sscanf must use .c_str
-                sscanf(hexAddr.c_str(), "%x", &addr);
+                string srcAddrStr = traceLine.substr(32, 8);
+                string srcDataStr = traceLine.substr(41, 8);
 
-                //convert address to virtual page number
-                //4k = 4096 byest = PAGE_SIZE
-                unsigned int virtualPage = addr / PAGE_SIZE;
+                // process dstM only if valid
+                if (dstDataStr != "--------" && dstAddrStr != "00000000") {
+                    unsigned int dstAddr = hexToUInt(dstAddrStr);
 
-                // count the address access
-                virtualPagesMapped++;
-
-                // check if the pagee is already mapped for this process
-                if (processes[i].pageTable[virtualPage].valid == true) {
-                    // count it as a hit
-                    totalPageTableHits++;
-                } else {
-                    // Mark virtyal page as as already seen
-                    processes[i].pageTable[virtualPage].valid = true;
-
-                    // count one more used page table for this proces
-                    processes[i].usedPageTableEntries++;
-
-                    //count it as coming from free memory
-                    totalPagesFromFree++;
+                    processAddress(dstAddr,
+                                   processes[i],
+                                   freePages,
+                                   virtualPagesMapped,
+                                   totalPageTableHits,
+                                   totalPagesFromFree,
+                                   totalPageFaults);
                 }
-                //test prints
-                //cout << hexAddr << endl;
-                //cout << addr << endl;
-                //cout << "addr = " << addr << ", vpn = " << virtualPage << endl;
-                //cout << virtualPagesMapped << endl;
+
+                // process srcM only if valid
+                if (srcDataStr != "--------" && srcAddrStr != "00000000") {
+                    unsigned int srcAddr = hexToUInt(srcAddrStr);
+
+                    processAddress(srcAddr,
+                                   processes[i],
+                                   freePages,
+                                   virtualPagesMapped,
+                                   totalPageTableHits,
+                                   totalPagesFromFree,
+                                   totalPageFaults);
+                }
             }
         }
 
         traceFile.close();
+
+        // free the pages for current process in loop
+        freeProcessPages(processes[i], freePages);
     }
-    // more test prints
-    //cout << "virtualPagesMapped = " << virtualPagesMapped << endl;
-    //cout << "totalPageTableHits = " << totalPageTableHits << endl;
-    //cout << "totalPagesFromFree = " << totalPagesFromFree << endl;
 
 
     /**
-     * ---------------------------------------------------------
-     * Print required output
-     * ---------------------------------------------------------
-     */
-
-    /*------------------------------------------------------------------------------------------
-    * M1 Outputs
-    * -----------------------------------------------------------------------------------------
+    * ----------------------------------------------------------------------------------------------------------------------
+    * Print required output
+    * ----------------------------------------------------------------------------------------------------------------------
     */
 
-    // cout << "MILESTONE #1:  Input Parameters and Calculated Values\n";
-    // cout << "Cache Simulator - CS 3853 - Team #11\n\n";
-    //
-    // cout << "Trace File(s):\n";
-    // for (i = 0; i < traceCount; i++) {
-    //     cout << "        " << traceFiles[i] << '\n';
-    // }
-    // cout << '\n';
-    //
-    // cout << "***** Cache Input Parameters *****\n\n";
-    // cout << left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
-    // cout << left << setw(32) << "Block Size:" << blockSize << " bytes\n";
-    // cout << left << setw(32) << "Associativity:" << associativity << '\n';
-    // cout << left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
-    // cout << left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
-    // cout << left << setw(32) << "Percent Memory Used by System:"
-    //         << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
-    //
-    // cout << left << setw(32) << "Instructions / Time Slice:";
-    // if (instructionsPerTimeSlice == -1) {
-    //     cout << "max\n";
-    // } else {
-    //     cout << instructionsPerTimeSlice << '\n';
-    // }
-    //
-    // cout << "\n***** Cache Calculated Values *****\n\n";
-    // cout << left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
-    //
-    // /* Tag size is based on actual physical memory */
-    // cout << left << setw(32) << "Tag Size:" << tagBits << " bits\n";
-    //
-    // cout << left << setw(32) << "Index Size:" << indexBits << " bits\n";
-    // cout << left << setw(32) << "Total # Rows:" << totalRows << '\n';
-    // cout << left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
-    // cout << left << setw(32) << "Implementation Memory Size:"
-    //         << fixed << setprecision(2) << implementationMemorySizeKB
-    //         << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
-    // cout << left << setw(32) << "Cost:"
-    //         << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
-    //
-    // cout << "\n***** Physical Memory Calculated Values *****\n\n";
-    // cout << left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
-    //
-    // /* numberOfPagesForSystem = (percentUsedByOS / 100.0) * numberOfPhysicalPages */
-    // cout << left << setw(32) << "Number of Pages for System:"
-    //         << numberOfPagesForSystem << '\n';
-    //
-    // /* pageTableEntryBits = 1 valid bit + physicalPageBits */
-    // cout << left << setw(32) << "Size of Page Table Entry:"
-    //         << pageTableEntryBits << " bits\n";
-    //
-    // /* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
-    // cout << left << setw(32) << "Total RAM for Page Table(s):"
-    //         << totalRAMForPageTables << " bytes\n";
+    /*-------------------------------------------------------------------------------------
+    * M1 Outputs
+    * -------------------------------------------------------------------------------------
+    */
+
+
+    cout << "Cache Simulator - CS 3853 - Team #11\n\n";
+
+    cout << "Trace File(s):\n";
+    for (i = 0; i < traceCount; i++) {
+        cout << "        " << traceFiles[i] << '\n';
+    }
+    cout << '\n';
+
+    cout << "***** Cache Input Parameters *****\n\n";
+    cout << left << setw(32) << "Cache Size:" << cacheSizeKB << " KB\n";
+    cout << left << setw(32) << "Block Size:" << blockSize << " bytes\n";
+    cout << left << setw(32) << "Associativity:" << associativity << '\n';
+    cout << left << setw(32) << "Replacement Policy:" << replacementPolicyPretty << '\n';
+    cout << left << setw(32) << "Physical Memory:" << physicalMemoryMB << " MB\n";
+    cout << left << setw(32) << "Percent Memory Used by System:"
+            << fixed << setprecision(1) << static_cast<double>(percentUsedByOS) << "%\n";
+
+    cout << left << setw(32) << "Instructions / Time Slice:";
+    if (instructionsPerTimeSlice == -1) {
+        cout << "max\n";
+    } else {
+        cout << instructionsPerTimeSlice << '\n';
+    }
+
+    cout << "\n***** Cache Calculated Values *****\n\n";
+    cout << left << setw(32) << "Total # Blocks:" << totalBlocks << '\n';
+
+    /* Tag size is based on actual physical memory */
+    cout << left << setw(32) << "Tag Size:" << tagBits << " bits\n";
+
+    cout << left << setw(32) << "Index Size:" << indexBits << " bits\n";
+    cout << left << setw(32) << "Total # Rows:" << totalRows << '\n';
+    cout << left << setw(32) << "Overhead Size:" << overheadSizeBytes << " bytes\n";
+    cout << left << setw(32) << "Implementation Memory Size:"
+            << fixed << setprecision(2) << implementationMemorySizeKB
+            << " KB  (" << implementationMemorySizeBytes << " bytes)\n";
+    cout << left << setw(32) << "Cost:"
+            << "$" << fixed << setprecision(2) << cost << " @ $0.07 per KB\n";
+
+    cout << "\n***** Physical Memory Calculated Values *****\n\n";
+    cout << left << setw(32) << "Number of Physical Pages:" << numberOfPhysicalPages << '\n';
+
+    /* numberOfPagesForSystem = (percentUsedByOS / 100.0) * numberOfPhysicalPages */
+    cout << left << setw(32) << "Number of Pages for System:"
+            << numberOfPagesForSystem << '\n';
+
+    /* pageTableEntryBits = 1 valid bit + physicalPageBits */
+    cout << left << setw(32) << "Size of Page Table Entry:"
+            << pageTableEntryBits << " bits\n";
+
+    /* totalRAMForPageTables = 512K entries * traceCount * pageTableEntryBits / 8 */
+    cout << left << setw(32) << "Total RAM for Page Table(s):"
+            << totalRAMForPageTables << " bytes\n";
 
     /*------------------------------------------------------------------------------------------
      * M2 Outputs
@@ -712,11 +781,11 @@ int main(int argc, char *argv[]) {
     cout << "Page Table Usage Per Process:" << endl;
     cout << "------------------------------" << endl;
     for (int i = 0; i < traceCount; i++) {
-        if (size(traceFiles[i]) != 0) {
+        if (!traceFiles[i].empty()) {
             cout << "[" << i << "] " << traceFiles[i] << ":" << endl;
             cout << "\tUsed Page Table Entries: "
-            << processes[i].usedPageTableEntries;
-            double percent = (double)processes[i].usedPageTableEntries / PAGE_TABLE_ENTRIES * 100;
+                    << processes[i].usedPageTableEntries;
+            double percent = (double) processes[i].usedPageTableEntries / PAGE_TABLE_ENTRIES * 100;
             cout << " (" << fixed << setprecision(2) << percent << "%)" << endl;
             int unusedEntries = PAGE_TABLE_ENTRIES - processes[i].usedPageTableEntries;
             int wastedBytes = (unusedEntries * pageTableEntryBits) / 8;
