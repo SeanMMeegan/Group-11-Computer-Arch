@@ -781,7 +781,7 @@ int main(int argc, char *argv[]) {
     cout << "Page Table Usage Per Process:" << endl;
     cout << "------------------------------" << endl;
     for (int i = 0; i < traceCount; i++) {
-        if (size(traceFiles[i]) != 0) {
+        if (!traceFiles[i].empty()) {
             cout << "[" << i << "] " << traceFiles[i] << ":" << endl;
             cout << "\tUsed Page Table Entries: "
                     << processes[i].usedPageTableEntries;
