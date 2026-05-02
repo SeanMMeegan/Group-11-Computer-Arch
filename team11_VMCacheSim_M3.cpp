@@ -904,6 +904,34 @@ int main(int argc, char *argv[]) {
      ----------
      */
 
+    cout << left << setw(32) << "\n***** CACHE SIMULATION rESULTS*****\n" << endl;
+    cout << left << setw(32) << "Total Cache Accesses: " << endl; // times cache row hit
+    cout << left << setw(32) << "--- Instruction Bytes:  " << endl;
+    cout << left << setw(32) << "--- SrcDst Bytes: " << endl;
+    cout << "Cache HIts:" << endl; // it was valid and tag matched
+    cout << "Cache misses: " << endl; // it was either not valid or tag didnt match
+    cout << left << setw(32) << "--- Compulsory Misses:  " << endl; // it was not valid
+    cout << left << setw(32) << "--- Conflict Misses: " << endl; // it was valid, tag did not match
+    cout << endl;
+    cout << endl;
+    cout << left << setw(32) << "\n***** ***** CACCHE HIT & MISS RATE: ***** *****\n" << endl;
+    cout << endl;
+    cout << "Hit Rate: " << endl; // (Hits * 100) / total accesses
+    cout << "Miss Rate: " << endl; // 1 - Hit rate
+    cout << "CPI:" << endl; // # Cycles/ # instructions
+    cout << "unused Cache Space: " << endl;
+    cout << "Unused Cache Blocks: " << endl;
+
+    // NOTE: A cache access is any time an address maps to a row.
+    //       reading 7 bytes and hitting two rows is counted as two accesses, not 7.
+    // Unused KB = ( (TotalBlocks-Compulsory Misses) * (BlockSize+OverheadSize) ) / 1024
+    // The 1024 KB below is the total cache size for this example
+    // Waste = COST/KB * Unused KB
+
+
+
+
+
 
 
 
