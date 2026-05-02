@@ -1,42 +1,54 @@
-/** @file team11_VMCacheSim_M2.cpp
+/** @file team11_VMCacheSim_M3.cpp
  * @author Group 11 - Meegan, Sean M. | Guerra, Sage | Hipolito, Kristian | Teschan, Addison K.
- * @brief CS 3853 Cache Simulator - Milestone #2 (Virtual Memory Simulation)
+ * @brief CS 3853 Virtual Memory and Cache Simulator - Milestone #3
  *
  * @details
- * This program reads command-line arguments for a configurable cache and
- * virtual memory simulator. It computes all required Milestone #1 values
- * and performs a virtual memory simulation using up to three trace files.
+ * This program reads command-line arguments for a configurable virtual memory
+ * and cache simulator. It computes the required Milestone #1 calculated values,
+ * performs the Milestone #2 virtual memory simulation, and performs the
+ * Milestone #3 cache simulation.
  *
- * The simulator processes memory references from the trace files and
- * models per-process page tables. It tracks page table hits, mappings
- * from free physical pages, and page faults when no free pages remain.
+ * The simulator processes instruction fetches and valid source/destination
+ * memory references from up to three trace files. Each virtual address is first
+ * translated through the process page table, then the resulting physical address
+ * is used to simulate cache behavior.
  *
- * @section functionality Milestone #2 Functionality
+ * The cache simulation tracks cache accesses, instruction bytes, source/
+ * destination bytes, hits, misses, compulsory misses, conflict misses, hit rate,
+ * miss rate, CPI, unused cache space, and unused cache blocks.
+ *
+ * @section functionality Milestone #3 Functionality
  * - Parse command-line arguments
- * - Compute cache and memory values (Milestone #1)
+ * - Compute cache and physical memory values (Milestone #1)
  * - Initialize per-process page tables (512K entries each)
- * - Read and parse trace files
- * - Simulate virtual-to-physical page mapping
+ * - Simulate virtual-to-physical page mapping (Milestone #2)
+ * - Simulate cache accesses using physical addresses (Milestone #3)
+ * - Support round-robin or random replacement policy
  * - Track:
- *   * Virtual pages mapped
- *   * Page table hits
- *   * Pages mapped from free physical memory
- *   * Total page faults
- * - Report per-process page table usage
+ *   * Total cache accesses
+ *   * Instruction bytes
+ *   * Source/destination bytes
+ *   * Cache hits and misses
+ *   * Compulsory and conflict misses
+ *   * Total cycle count
+ *   * CPI
+ *   * Unused cache blocks and unused cache space
  *
  * @section assumptions Project Assumptions
  * - 32-bit data bus
  * - 32-bit virtual address space (4 GB)
- * - Only lower 31 bits used (max address 0x7FFFFFFF)
+ * - Only lower 31 bits are used by the trace files
  * - Page size = 4 KB
  * - Page table size = 512K entries per process
- * - Physical memory is configurable from 128 MB to 4096 MB (powers of 2)
- * - Cache size is configurable from 8 KB to 8192 KB (powers of 2)
+ * - Physical memory is configurable from 128 MB to 4096 MB
+ * - Cache size is configurable from 8 KB to 8192 KB
  * - Block size may be 8, 16, 32, or 64 bytes
  * - Associativity may be 1, 2, 4, 8, or 16
  * - Replacement policy may be RR or RND
  * - Up to 3 trace files may be provided
  * - Each trace file represents a separate process
+ * - EIP instruction fetches use the length listed in the trace
+ * - Valid dstM/srcM references are treated as 4-byte accesses
  *
  * @section parameters Command-Line Parameters
  * - `-s <cache size KB>` : cache size in KB
@@ -50,13 +62,20 @@
  *
  * @section example Example Run
  * @code
- * ./VMCacheSim -s 512 -b 16 -a 4 -r rr -p 1024 -u 75 -n 100 \
+ * ./team11_VMCacheSim_M3 -s 512 -b 16 -a 4 -r rr -p 1024 -u 75 -n 100 \
  * -f Trace1.trc -f Trace2_4Evaluation.trc -f Corruption1.trc
  * @endcode
  *
  * @section notes Notes
- * - Trace files are processed to simulate virtual memory behavior.
- * - Each memory access is translated into a virtual page lookup.
+ * - Trace files are processed line by line.
+ * - Each EIP access is counted as an instruction fetch.
+ * - Each valid dstM/srcM access is counted as a data access.
+ * - A memory reference may touch multiple cache blocks.
+ * - Cache hits cost 1 cycle per cache block accessed.
+ * - Cache misses cost 4 * ceil(block size / 4) cycles per cache block accessed.
+ * - Instruction fetches add 2 execution cycles.
+ * - Data accesses add 1 effective-address calculation cycle.
+ * - Page faults add 100 cycles.
  */
 
 #include <cstdio>
@@ -116,6 +135,45 @@ struct ProcessInfo {
 // Global process array
 // ***This is here because it grows fast and will OVERFLOW the stack***
 ProcessInfo processes[3];
+
+/**
+ *--------------------------------------------------------------------------------
+ * M3 Cache Structss
+ *--------------------------------------------------------------------------------
+ */
+
+// One block in the cache
+struct CacheBlock {
+    bool isValid = false;          // does this block have valid data?
+    unsigned int tag = 0;          // tag used to identify the block
+};
+
+// One set in the cache (a group of blocks)
+struct CacheSet {
+    vector<CacheBlock> blocks;     // blocks inside this set
+
+    // used for round-robin replacement
+    int nextBlockToReplace = 0;
+};
+
+// Keeps track of all cache stats
+struct CacheStats {
+    int totalAddresses = 0;        // number of addresses from trace
+
+    int totalCacheAccesses = 0;    // number of cache block accesses
+
+    int instructionBytes = 0;      // total instruction bytes
+    int dataBytes = 0;             // total src/dst bytes
+
+    int hits = 0;
+    int misses = 0;
+
+    int compulsoryMisses = 0;      // first time loading block
+    int conflictMisses = 0;        // replaced block in same set
+
+    long long totalCycles = 0;     // total cycles used
+    int totalInstructions = 0;     // number of instructions
+};
 
 
 /*--------------------------------------------------------------------------------
@@ -228,6 +286,42 @@ void freeProcessPages(ProcessInfo &process, vector<unsigned int> &freePages) {
             process.pageTable[v].phyPageNumber = 0;
         }
     }
+}
+
+/*----------------------
+ * M3 Functions
+ *----------------------*/
+
+// Create and set up the cache
+void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
+
+    // STEP 1: Create the correct number of sets
+    // Right now this just creates empty sets no blocks inside yet.
+    cache.resize(totalRows);
+
+
+    // TODO (M3 - STEP 2):
+    // For EACH set, create the correct number of blocks.
+    // - Each set should have 'associativity' number of CacheBlock objects
+    // - Example: associativity = 4 : each set has 4 blocks
+    // if wee skip this, the cache exists but can't store anything.
+
+
+    // TODO (M3 - STEP 3):
+    // Initialize every block in every set.
+    // - isValid = false
+    // - tag = 0
+    // We  should assume the cache starts empty.
+    // If this is wrong, the hit rate will be werid i think
+
+
+    // TODO (M3 - STEP 4):
+    // Reset replacement pointer for Round Robin.
+    // without replacment then it wil probaly blow up
+
+
+    // Current state:
+    // Cache structure exists, but there are no usable block
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -351,6 +445,18 @@ int main(int argc, char *argv[]) {
 
     // vector for free pages
     vector<unsigned int> freePages;
+
+    /**
+     * ---------------------------------------------------------
+     * M3 cache varibles
+     * ---------------------------------------------------------
+     */
+
+    // Cache data structure
+    vector<CacheSet> cache;
+
+    // Cache statistics
+    CacheStats cacheStats;
 
 
     /**
@@ -598,7 +704,7 @@ int main(int argc, char *argv[]) {
     // process array moved to global
 
     // Loop though each trace file
-    for (size_t i = 0; i < traceCount; ++i) {
+    for (int i = 0; i < traceCount; ++i) {
         // store the tracefile name
         processes[i].traceFileName = traceFiles[i];
 
@@ -607,7 +713,7 @@ int main(int argc, char *argv[]) {
 
         //initialize page table so all entres start as invalid
         // this means no virtual pages are mapped to phy pages yet
-        for (size_t j = 0; j < PAGE_TABLE_ENTRIES; ++j) {
+        for (int j = 0; j < PAGE_TABLE_ENTRIES; ++j) {
             // mark as not mapped
             processes[i].pageTable[j].valid = false;
 
@@ -627,7 +733,7 @@ int main(int argc, char *argv[]) {
     string traceLine;
 
     // start the loop
-    for (size_t i = 0; i < traceCount; i++) {
+    for (int i = 0; i < traceCount; i++) {
         ifstream traceFile(traceFiles[i]);
 
         if (!traceFile) {
@@ -792,5 +898,19 @@ int main(int argc, char *argv[]) {
             cout << "\tPage Table Wasted: " << wastedBytes << " bytes" << endl;
         }
     }
+
+    /*-----------
+        M3 OUTPUTS
+     ----------
+     */
+
+
+
+
+ /*------------------------------------------------------------------------------------------
+ * END
+ * -----------------------------------------------------------------------------------------
+ */
+
     return 0;
 }
