@@ -5,10 +5,10 @@ CXX = g++
 CXXFLAGS = -std=c++11 -Wall -O2
 
 # === Target executable ===
-TARGET = team11_VMCacheSim_M2
+TARGET = team11_VMCacheSim_M3
 
 # === Source file ===
-SRC = team11_VMCacheSim_M2.cpp
+SRC = team11_VMCacheSim_M3.cpp
 
 # === Build rule ===
 all: $(TARGET)
