@@ -321,8 +321,8 @@ void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
         // now inside one blocj
         // initialize the block
         // need to set each block isvalid and tag
-        cache[i].block[j].isValid = false;
-        cache[i].block[j].tag = 0;
+        cache[i].blocks[j].isValid = false;
+        cache[i].blocks[j].tag = 0;
         }
       }
 
