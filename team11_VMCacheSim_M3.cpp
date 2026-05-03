@@ -1153,10 +1153,24 @@ int main(int argc, char *argv[]) {
     cout << left << setw(32) << setprecision(4) << "Miss Rate: " << 100.0 - cacheStats.hitRate << "%" << endl; // 1 - Hit rate
     cout << left << setw(32) << "CPI:" << fixed << setprecision(2) << cpi << " Cycles/Instruction" << endl; // # Cycles/ # instructions
 
-    // Unused blocks are block thate were never filled
-    // Cumpulsory misses is the number of blocks that were used at least once
+    // Unused blocks are block that were never filled
+    // Compulsory misses is the number of blocks that were used at least once
     int unusedBlocks = totalBlocks - cacheStats.compulsoryMisses;
-    cout << left << setw(32) << "Unused Cache Space: " << endl;
+
+    // Each cache block uses data bytes plus overhead bits.
+    // Convert overhead bits to bytes, avoid int division
+    double overheadBytesPerBlock = overheadBitsPerBlock / 8.0;
+
+    // Unused cache space = unused blocks * storage used per block
+    double unusedCacheKB = (unusedBlocks * (blockSize + overheadBytesPerBlock)) / 1024.0;
+    double unusedPercent = (unusedCacheKB / implementationMemorySizeKB) * 100.0;
+    double wasteCost = unusedCacheKB * COST_PER_KB;
+    cout << left << setw(32) << "Unused Cache Space: "
+    << fixed << setprecision(2)
+    << unusedCacheKB << "KB / "
+    << implementationMemorySizeKB << " KB = "
+    << unusedPercent << "% Waste: $"
+    << wasteCost << "/chip" << endl;
     cout << left << setw(32) << "Unused Cache Blocks: " << unusedBlocks << " / " << totalBlocks << endl;
 
     // NOTE: A cache access is any time an address maps to a row.
@@ -1164,13 +1178,6 @@ int main(int argc, char *argv[]) {
     // Unused KB = ( (TotalBlocks-Compulsory Misses) * (BlockSize+OverheadSize) ) / 1024
     // The 1024 KB below is the total cache size for this example
     // Waste = COST/KB * Unused KB
-
-
-
-
-
-
-
 
  /*------------------------------------------------------------------------------------------
  * END
