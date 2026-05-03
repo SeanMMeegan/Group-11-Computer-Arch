@@ -171,8 +171,9 @@ struct CacheStats {
     int compulsoryMisses = 0;      // first time loading block
     int conflictMisses = 0;        // replaced block in same set
 
+    int totalInstructions = 0;     // number of instucions
     long long totalCycles = 0;     // total cycles used
-    int totalInstructions = 0;     // number of instructions
+
 };
 
 
@@ -292,36 +293,45 @@ void freeProcessPages(ProcessInfo &process, vector<unsigned int> &freePages) {
  * M3 Functions
  *----------------------*/
 
+//totalBlocks
+
 // Create and set up the cache
 void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
 
     // STEP 1: Create the correct number of sets
     // Right now this just creates empty sets no blocks inside yet.
+    // totalRows = totalBlocks / associativity
+    // totalBlocks = cache size / block size
+    // this holds a n number of CacheSets
     cache.resize(totalRows);
 
 
-    // TODO (M3 - STEP 2):
+
     // For EACH set, create the correct number of blocks.
     // - Each set should have 'associativity' number of CacheBlock objects
-    // - Example: associativity = 4 : each set has 4 blocks
-    // if wee skip this, the cache exists but can't store anything.
+    // - associativity = 4: each set has 4 blocks
+    // if wee skip this, the cache exists but can't store anything
+    for (int i = 0; i < totalRows; i++) {
+      // inside one set: cache[i]
+      // give it some blocks based off associativity
+      cache[i].blocks.resize(associativity);
 
-
-    // TODO (M3 - STEP 3):
-    // Initialize every block in every set.
-    // - isValid = false
-    // - tag = 0
-    // We  should assume the cache starts empty.
-    // If this is wrong, the hit rate will be werid i think
-
+      // then go through each block in this set: cache[i]
+      for (int j = 0; j < associativity; j++) {
+        // now inside one blocj
+        // initialize the block
+        // need to set each block isvalid and tag
+        cache[i].block[j].isValid = false;
+        cache[i].block[j].tag = 0;
+        }
+      }
 
     // TODO (M3 - STEP 4):
     // Reset replacement pointer for Round Robin.
     // without replacment then it wil probaly blow up
 
 
-    // Current state:
-    // Cache structure exists, but there are no usable block
+
 }
 
 //----------------------------------------------------------------------------------------------------------------------
