@@ -272,10 +272,23 @@ bool processAddress(unsigned int addr,
 
         totalPagesFromFree++;
         return false; // mapped free page still no page fault
+    } else {
+        // otherwise nothing was free so pagefault should occur
+        totalPageFaults++;
+
+        // TODO (M3 - Page Replacement):
+        // No free physical pages available.
+        // Need to implement page replacement:
+        //   1. Select a physical page to evict (could be from any process)
+        //   2. Find which virtual page maps to that physical page
+        //   3. Invalidate that page table entry
+        //   4. (Optional but correct) Invalidate any cache blocks using that physical page
+        //   5. Reassign the freed physical page to this virtual page
+
+        // For now, we only count the page fault and do not remap.
+
+        return true; // page fault has happened
     }
-    // otherwise nothing was free so pagefault should occur
-    totalPageFaults++;
-    return true; // page fault has happened
 }
 
 /**
