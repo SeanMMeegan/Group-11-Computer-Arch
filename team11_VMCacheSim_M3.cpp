@@ -293,48 +293,81 @@ void freeProcessPages(ProcessInfo &process, vector<unsigned int> &freePages) {
  * M3 Functions
  *----------------------*/
 
-//totalBlocks
+//1. create sets
+//2. create blocks in each set
+//3. mark blocks invalid
+//4. start round-robin pointer at 0
 
 // Create and set up the cache
 void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
 
-    // STEP 1: Create the correct number of sets
+    // Create the correct number of sets
     // Right now this just creates empty sets no blocks inside yet.
     // totalRows = totalBlocks / associativity
     // totalBlocks = cache size / block size
     // this holds a n number of CacheSets
     cache.resize(totalRows);
 
-
-
     // For EACH set, create the correct number of blocks.
     // - Each set should have 'associativity' number of CacheBlock objects
     // - associativity = 4: each set has 4 blocks
     // if wee skip this, the cache exists but can't store anything
     for (int i = 0; i < totalRows; i++) {
-      // inside one set: cache[i]
-      // give it some blocks based off associativity
-      cache[i].blocks.resize(associativity);
+        // inside one set: cache[i]
+        // give it some blocks based off associativity
+        cache[i].blocks.resize(associativity);
 
-      // then go through each block in this set: cache[i]
-      for (int j = 0; j < associativity; j++) {
-        // now inside one blocj
-        // initialize the block
-        // need to set each block isvalid and tag
-        cache[i].blocks[j].isValid = false;
-        cache[i].blocks[j].tag = 0;
-        }
-
-        // TODO (M3 - STEP 4):
+        // then go through each block in this set: cache[i]
+        for (int j = 0; j < associativity; j++) {
+            // now inside one blocj
+            // initialize the block
+            // need to set each block isvalid and tag
+            cache[i].blocks[j].isValid = false;
+            cache[i].blocks[j].tag = 0;
+       }
         // Reset replacement pointer for Round Robin.
         // without replacment then it wil probaly blow up
         cache[i].nextBlockToReplace = 0;
-      }
+   }
+ }
 
 
 
 
+
+// Get the cache set index from a physical address
+unsigned int getCacheIndex(unsigned physicalAddress, int offsetBits, int totalRows) {
+
+    // TODO (M3 - Index):
+    // Remove the block offset bits from the address.
+    // The offset only tells us the byte inside the block, not which set to use.
+    unsigned blockNumber = physicalAddress >> offsetBits;
+
+    // map the number to one cache set
+    // Multiple blocks will share the same set.
+    unsigned index = blockNumber % totalRows;
+
+
+      // TODO (M3 - Index):
+      // Use totalRows to keep the index inside the cache.
+      // If this math is wrong, the cache will quietly lie to us.
+
+  return index;
 }
+
+// Get the cache tag from a physical address
+unsigned int getCacheTag(unsigned int physicalAddress, int offsetBits, int indexBits) {
+
+    // TODO (M3 - Tag):
+    // Remove both the offset bits and index bits.
+    // Whatever remains is the tag.
+
+    // TODO (M3 - Tag):
+    // Return the tag so we can compare it against blocks in the selected set.
+    // The tag is how we know whether the block is actually the one we wanted.
+
+    return tag;
+    }
 
 //----------------------------------------------------------------------------------------------------------------------
 //  START OF MAIN
