@@ -943,6 +943,10 @@ int main(int argc, char *argv[]) {
                 accessCacheRange(physicalAddress, instructionLength, blockSize, cache,
                                 cacheStats, offsetBits, indexBits, totalRows, replacementPolicyRaw);
 
+
+                //+2 cycles for instruction execution
+                cacheStats.totalCycles += 2;
+
                 // track how many instructions have been processed
                 cacheStats.instructionBytes += instructionLength;
 
