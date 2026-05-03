@@ -324,11 +324,13 @@ void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
         cache[i].blocks[j].isValid = false;
         cache[i].blocks[j].tag = 0;
         }
+
+        // TODO (M3 - STEP 4):
+        // Reset replacement pointer for Round Robin.
+        // without replacment then it wil probaly blow up
+        cache[i].nextBlockToReplace = 0;
       }
 
-    // TODO (M3 - STEP 4):
-    // Reset replacement pointer for Round Robin.
-    // without replacment then it wil probaly blow up
 
 
 
