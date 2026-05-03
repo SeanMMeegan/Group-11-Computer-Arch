@@ -820,6 +820,7 @@ int main(int argc, char *argv[]) {
     /**
      * 
      */
+    //Sean changes:
     initCache(cache, totalRows, associativity);
 
     /**
