@@ -250,6 +250,7 @@ bool processAddress(unsigned int addr,
                     int &totalPageTableHits,
                     int &totalPagesFromFree,
                     int &totalPageFaults) {
+
     unsigned int virtualPage = addr / PAGE_SIZE;
 
     // count every valid address access
@@ -276,17 +277,30 @@ bool processAddress(unsigned int addr,
         // otherwise nothing was free so pagefault should occur
         totalPageFaults++;
 
-        // TODO (M3 - Page Replacement):
-        // No free physical pages available.
-        // Need to implement page replacement:
-        //   1. Select a physical page to evict (could be from any process)
-        //   2. Find which virtual page maps to that physical page
-        //   3. Invalidate that page table entry
-        //   4. (Optional but correct) Invalidate any cache blocks using that physical page
-        //   5. Reassign the freed physical page to this virtual page
+       for (int oldVirtualPage = 0; oldVirtualPage < PAGE_TABLE_ENTRIES; oldVirtualPage++) {
+           // Found a page that is mapped
+           if (process.pageTable[oldVirtualPage].valid) {
+               //save the page it was using
+               unsigned reusedPhysicalPage = process.pageTable[oldVirtualPage].phyPageNumber;
 
-        // For now, we only count the page fault and do not remap.
+               //unuse the old page
+               // clear the pagetable valid and number
+               process.pageTable[oldVirtualPage].valid = false;
+               process.pageTable[oldVirtualPage].phyPageNumber = 0;
 
+               // make the new virtual page use the reused pysical one
+               process.pageTable[virtualPage].valid = true;
+               process.pageTable[virtualPage].phyPageNumber = reusedPhysicalPage;
+
+               //this still counts as a page fault
+               return true;
+
+           }
+
+       }
+
+        //incase no valid page was found then we still cant map this address
+        // so to besafe then it should count as a page fault.
         return true; // page fault has happened
     }
 }
