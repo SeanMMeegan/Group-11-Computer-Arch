@@ -144,13 +144,13 @@ ProcessInfo processes[3];
 
 // One block in the cache
 struct CacheBlock {
-    bool isValid = false;          // does this block have valid data?
-    unsigned int tag = 0;          // tag used to identify the block
+    bool isValid = false; // does this block have valid data?
+    unsigned int tag = 0; // tag used to identify the block
 };
 
 // One set in the cache (a group of blocks)
 struct CacheSet {
-    vector<CacheBlock> blocks;     // blocks inside this set
+    vector<CacheBlock> blocks; // blocks inside this set
 
     // used for round-robin replacement
     int nextBlockToReplace = 0;
@@ -158,24 +158,23 @@ struct CacheSet {
 
 // Keeps track of all cache stats
 struct CacheStats {
-    int totalAddresses = 0;        // number of addresses from trace
+    int totalAddresses = 0; // number of addresses from trace
 
-    int totalCacheAccesses = 0;    // number of cache block accesses
+    int totalCacheAccesses = 0; // number of cache block accesses
 
-    int instructionBytes = 0;      // total instruction bytes
-    int dataBytes = 0;             // total src/dst bytes
+    int instructionBytes = 0; // total instruction bytes
+    int dataBytes = 0; // total src/dst bytes
 
     int hits = 0;
     int misses = 0;
 
-    int compulsoryMisses = 0;      // first time loading block
-    int conflictMisses = 0;        // replaced block in same set
+    int compulsoryMisses = 0; // first time loading block
+    int conflictMisses = 0; // replaced block in same set
 
-    int totalInstructions = 0;     // number of instucions
-    long long totalCycles = 0;     // total cycles used, long long incase of overflow, seems to be getting pretty big
+    int totalInstructions = 0; // number of instucions
+    long long totalCycles = 0; // total cycles used, long long incase of overflow, seems to be getting pretty big
 
     double hitRate = 0.0;
-
 };
 
 
@@ -250,7 +249,6 @@ bool processAddress(unsigned int addr,
                     int &totalPageTableHits,
                     int &totalPagesFromFree,
                     int &totalPageFaults) {
-
     unsigned int virtualPage = addr / PAGE_SIZE;
 
     // count every valid address access
@@ -277,27 +275,25 @@ bool processAddress(unsigned int addr,
         // otherwise nothing was free so pagefault should occur
         totalPageFaults++;
 
-       for (int oldVirtualPage = 0; oldVirtualPage < PAGE_TABLE_ENTRIES; oldVirtualPage++) {
-           // Found a page that is mapped
-           if (process.pageTable[oldVirtualPage].valid) {
-               //save the page it was using
-               unsigned reusedPhysicalPage = process.pageTable[oldVirtualPage].phyPageNumber;
+        for (int oldVirtualPage = 0; oldVirtualPage < PAGE_TABLE_ENTRIES; oldVirtualPage++) {
+            // Found a page that is mapped
+            if (process.pageTable[oldVirtualPage].valid) {
+                //save the page it was using
+                unsigned reusedPhysicalPage = process.pageTable[oldVirtualPage].phyPageNumber;
 
-               //unuse the old page
-               // clear the pagetable valid and number
-               process.pageTable[oldVirtualPage].valid = false;
-               process.pageTable[oldVirtualPage].phyPageNumber = 0;
+                //unuse the old page
+                // clear the pagetable valid and number
+                process.pageTable[oldVirtualPage].valid = false;
+                process.pageTable[oldVirtualPage].phyPageNumber = 0;
 
-               // make the new virtual page use the reused pysical one
-               process.pageTable[virtualPage].valid = true;
-               process.pageTable[virtualPage].phyPageNumber = reusedPhysicalPage;
+                // make the new virtual page use the reused pysical one
+                process.pageTable[virtualPage].valid = true;
+                process.pageTable[virtualPage].phyPageNumber = reusedPhysicalPage;
 
-               //this still counts as a page fault
-               return true;
-
-           }
-
-       }
+                //this still counts as a page fault
+                return true;
+            }
+        }
 
         //incase no valid page was found then we still cant map this address
         // so to besafe then it should count as a page fault.
@@ -331,7 +327,6 @@ void freeProcessPages(ProcessInfo &process, vector<unsigned int> &freePages) {
 
 // Create and set up the cache
 void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
-
     // Create the correct number of sets
     // Right now this just creates empty sets no blocks inside yet.
     // totalRows = totalBlocks / associativity
@@ -355,21 +350,16 @@ void initCache(vector<CacheSet> &cache, int totalRows, int associativity) {
             // need to set each block isvalid and tag
             cache[i].blocks[j].isValid = false;
             cache[i].blocks[j].tag = 0;
-       }
+        }
         // Reset replacement pointer for Round Robin.
         // without replacment then it wil probaly blow up
         cache[i].nextBlockToReplace = 0;
-   }
- }
-
-
-
+    }
+}
 
 
 // Get the cache set index from a physical address
 unsigned int getCacheIndex(unsigned physicalAddress, int offsetBits, int totalRows) {
-
-
     // Remove the block offset bits from the address.
     // The offset only tells us the byte inside the block, not which set to use.
     unsigned blockNumber = physicalAddress >> offsetBits;
@@ -379,9 +369,8 @@ unsigned int getCacheIndex(unsigned physicalAddress, int offsetBits, int totalRo
     unsigned index = blockNumber % totalRows;
 
 
-
-      // Use totalRows to keep the index inside the cache.
-      // If this math is wrong, the cache will quietly lie to us.
+    // Use totalRows to keep the index inside the cache.
+    // If this math is wrong, the cache will quietly lie to us.
 
     return index;
 }
@@ -389,14 +378,13 @@ unsigned int getCacheIndex(unsigned physicalAddress, int offsetBits, int totalRo
 //Sean changes:
 // Get the cache tag from a physical address
 unsigned int getCacheTag(unsigned int physicalAddress, int offsetBits, int indexBits) {
-
     // Remove both the offset bits and index bits.
     // Whatever remains is the tag.
     unsigned int tag = physicalAddress >> (offsetBits + indexBits);
 
     // Return the tag so we can compare it against blocks in the selected set.
     // The tag is how we know whether the block is actually the one we wanted.
-    
+
     return tag;
 }
 
@@ -409,7 +397,6 @@ void accessCache(unsigned int physicalAddress,
                  int totalRows,
                  int blockSize,
                  string replacementPolicy) {
-
     // find index + tag
     unsigned int index = getCacheIndex(physicalAddress, offsetBits, totalRows);
     unsigned int tag = getCacheTag(physicalAddress, offsetBits, indexBits);
@@ -420,7 +407,7 @@ void accessCache(unsigned int physicalAddress,
     stats.totalCacheAccesses++;
 
     // check hit/miss
-    for (auto &block : set.blocks) {
+    for (auto &block: set.blocks) {
         if (block.isValid && block.tag == tag) {
             stats.hits++;
 
@@ -435,9 +422,15 @@ void accessCache(unsigned int physicalAddress,
     stats.misses++;
 
     //Cache miss cost 4 cycles per 4byte memory read
+    // Cache miss cost:
+    // 4 cycles per 4-byte memory read needed to populate one cache block.
+    int memoryReads = (blockSize + 3) / 4;   // ceil(blockSize / 4)
+    int missCycles = 4 * memoryReads;
+    stats.totalCycles += missCycles;
+
 
     // check for empty blocks
-    for (auto &block : set.blocks) {
+    for (auto &block: set.blocks) {
         if (!block.isValid) {
             block.isValid = true;
             block.tag = tag;
@@ -451,12 +444,12 @@ void accessCache(unsigned int physicalAddress,
     stats.conflictMisses++;
 
     int replaceIndex;
-    
+
     //this is part of what im not sure about, hoping i interpreted these right
     if (replacementPolicy == "rr") {
         replaceIndex = set.nextBlockToReplace;
         set.nextBlockToReplace =
-            (set.nextBlockToReplace + 1) % set.blocks.size();
+                (set.nextBlockToReplace + 1) % set.blocks.size();
     } else {
         replaceIndex = rand() % set.blocks.size();
     }
@@ -474,9 +467,8 @@ void accessCacheRange(unsigned int physicalAddress,
                       int offsetBits,
                       int indexBits,
                       int totalRows,
-                      string replacementPolicyRaw)
-{
-    // had some issues with the first method being innaccurate, this worked as a solution, 
+                      string replacementPolicyRaw) {
+    // had some issues with the first method being innaccurate, this worked as a solution,
     // not gonna mess with it too much for now
     unsigned int startBlock = physicalAddress / blockSize;
     unsigned int endBlock;
@@ -786,7 +778,7 @@ int main(int argc, char *argv[]) {
      */
     indexBits = intLog2(totalRows);
 
-    
+
     /**
      * Physical address bits = log2(physical memory in bytes)
      */
@@ -855,7 +847,7 @@ int main(int argc, char *argv[]) {
     totalPagesForUser = numberOfPhysicalPages - numberOfPagesForSystem;
 
     /**
-     * 
+     *
      */
     //Sean changes:
     initCache(cache, totalRows, associativity);
@@ -914,7 +906,6 @@ int main(int argc, char *argv[]) {
         }
 
         while (getline(traceFile, traceLine)) {
-
             // EIP line
             if (traceLine.find("EIP") == 0) {
                 // Example: EIP (04): 7c809767 ...
@@ -922,12 +913,12 @@ int main(int argc, char *argv[]) {
                 unsigned int addr = hexToUInt(hexAddr);
                 int instructionLength = atoi(traceLine.substr(5, 2).c_str());
                 bool pagefault = processAddress(addr,
-                                processes[i],
-                               freePages,
-                               virtualPagesMapped,
-                               totalPageTableHits,
-                               totalPagesFromFree,
-                               totalPageFaults);
+                                                processes[i],
+                                                freePages,
+                                                virtualPagesMapped,
+                                                totalPageTableHits,
+                                                totalPagesFromFree,
+                                                totalPageFaults);
 
                 if (pagefault) {
                     cacheStats.totalCycles += 100; // page fault cost 100 cycles
@@ -955,7 +946,7 @@ int main(int argc, char *argv[]) {
                 //5. nnow we access the cache using the physical address
                 // this could overlap block depending on the size of the instruction
                 accessCacheRange(physicalAddress, instructionLength, blockSize, cache,
-                                cacheStats, offsetBits, indexBits, totalRows, replacementPolicyRaw);
+                                 cacheStats, offsetBits, indexBits, totalRows, replacementPolicyRaw);
 
 
                 //+2 cycles for instruction execution
@@ -981,12 +972,12 @@ int main(int argc, char *argv[]) {
                     unsigned int dstAddr = hexToUInt(dstAddrStr);
 
                     bool pageFault = processAddress(dstAddr,
-                                   processes[i],
-                                   freePages,
-                                   virtualPagesMapped,
-                                   totalPageTableHits,
-                                   totalPagesFromFree,
-                                   totalPageFaults);
+                                                    processes[i],
+                                                    freePages,
+                                                    virtualPagesMapped,
+                                                    totalPageTableHits,
+                                                    totalPagesFromFree,
+                                                    totalPageFaults);
                     if (pageFault) {
                         cacheStats.totalCycles += 100; // page fault cost 100 cycles
                     }
@@ -1000,11 +991,11 @@ int main(int argc, char *argv[]) {
                     unsigned int physicalAddress = (physicalPage * PAGE_SIZE) + offset;
 
                     accessCacheRange(physicalAddress, 4, blockSize, cache,
-                                cacheStats, offsetBits, indexBits, totalRows, replacementPolicyRaw);
+                                     cacheStats, offsetBits, indexBits, totalRows, replacementPolicyRaw);
 
 
                     // Date access is +1 cycle for effective address calculation
-                    cacheStats.totalCycles +=1;
+                    cacheStats.totalCycles += 1;
 
                     cacheStats.dataBytes += 4;
                 }
@@ -1013,13 +1004,13 @@ int main(int argc, char *argv[]) {
                 if (srcDataStr != "--------" && srcAddrStr != "00000000") {
                     unsigned int srcAddr = hexToUInt(srcAddrStr);
 
-                   bool pageFault =  processAddress(srcAddr,
-                                   processes[i],
-                                   freePages,
-                                   virtualPagesMapped,
-                                   totalPageTableHits,
-                                   totalPagesFromFree,
-                                   totalPageFaults);
+                    bool pageFault = processAddress(srcAddr,
+                                                    processes[i],
+                                                    freePages,
+                                                    virtualPagesMapped,
+                                                    totalPageTableHits,
+                                                    totalPagesFromFree,
+                                                    totalPageFaults);
 
                     if (pageFault) {
                         cacheStats.totalCycles += 100; // page fault cost 100 cycles
@@ -1034,8 +1025,8 @@ int main(int argc, char *argv[]) {
                     unsigned int physicalAddress = (physicalPage * PAGE_SIZE) + offset;
 
                     accessCacheRange(physicalAddress, 4, blockSize,
-                                    cache, cacheStats, offsetBits, indexBits,
-                                    totalRows, replacementPolicyRaw);
+                                     cache, cacheStats, offsetBits, indexBits,
+                                     totalRows, replacementPolicyRaw);
 
                     //Data access requiers +1 cycle for effective address
                     cacheStats.totalCycles += 1;
@@ -1047,7 +1038,7 @@ int main(int argc, char *argv[]) {
 
         traceFile.close();
         if (cacheStats.totalCacheAccesses > 0) {
-            cacheStats.hitRate = (cacheStats.hits * 100.0)/cacheStats.totalCacheAccesses;
+            cacheStats.hitRate = (cacheStats.hits * 100.0) / cacheStats.totalCacheAccesses;
         }
         // free the pages for current process in loop
         freeProcessPages(processes[i], freePages);
@@ -1164,25 +1155,31 @@ int main(int argc, char *argv[]) {
     double cpi = 0.0;
 
     // if there are instructions, then calculate
-    if (cacheStats.totalInstructions  > 0) {
+    if (cacheStats.totalInstructions > 0) {
         cpi = (double) cacheStats.totalCycles / cacheStats.totalInstructions;
     }
 
     cout << left << setw(32) << "\n***** CACHE SIMULATION RESULTS*****\n" << endl;
-    cout << left << setw(32) << "Total Cache Accesses: " << cacheStats.totalCacheAccesses << endl; // times cache row hit
-    cout << left << setw(32) << "--- Instruction Bytes:  " << cacheStats.instructionBytes <<endl;
+    cout << left << setw(32) << "Total Cache Accesses: " << cacheStats.totalCacheAccesses << endl;
+    // times cache row hit
+    cout << left << setw(32) << "--- Instruction Bytes:  " << cacheStats.instructionBytes << endl;
     cout << left << setw(32) << "--- SrcDst Bytes: " << cacheStats.dataBytes << endl;
     cout << left << setw(32) << "Cache Hits:" << cacheStats.hits << endl; // it was valid and tag matched
-    cout << left << setw(32) << "Cache misses: " << cacheStats.misses << endl; // it was either not valid or tag didnt match
+    cout << left << setw(32) << "Cache misses: " << cacheStats.misses << endl;
+    // it was either not valid or tag didnt match
     cout << left << setw(32) << "--- Compulsory Misses:  " << cacheStats.compulsoryMisses << endl; // it was not valid
-    cout << left << setw(32) << "--- Conflict Misses: " << cacheStats.conflictMisses << endl; // it was valid, tag did not match
+    cout << left << setw(32) << "--- Conflict Misses: " << cacheStats.conflictMisses << endl;
+    // it was valid, tag did not match
     cout << endl;
     cout << endl;
     cout << left << setw(32) << "\n***** ***** CACCHE HIT & MISS RATE: ***** *****" << endl;
     cout << endl;
-    cout << left << setw(32) << "Hit Rate: " << fixed << setprecision(4) << cacheStats.hitRate << "%\n"; // (Hits * 100) / total accesses
-    cout << left << setw(32) << setprecision(4) << "Miss Rate: " << 100.0 - cacheStats.hitRate << "%" << endl; // 1 - Hit rate
-    cout << left << setw(32) << "CPI:" << fixed << setprecision(2) << cpi << " Cycles/Instruction" << endl; // # Cycles/ # instructions
+    cout << left << setw(32) << "Hit Rate: " << fixed << setprecision(4) << cacheStats.hitRate << "%\n";
+    // (Hits * 100) / total accesses
+    cout << left << setw(32) << setprecision(4) << "Miss Rate: " << 100.0 - cacheStats.hitRate << "%" << endl;
+    // 1 - Hit rate
+    cout << left << setw(32) << "CPI:" << fixed << setprecision(2) << cpi << " Cycles/Instruction" << endl;
+    // # Cycles/ # instructions
 
     // Unused blocks are block that were never filled
     // Compulsory misses is the number of blocks that were used at least once
@@ -1197,11 +1194,11 @@ int main(int argc, char *argv[]) {
     double unusedPercent = (unusedCacheKB / implementationMemorySizeKB) * 100.0;
     double wasteCost = unusedCacheKB * COST_PER_KB;
     cout << left << setw(32) << "Unused Cache Space: "
-    << fixed << setprecision(2)
-    << unusedCacheKB << "KB / "
-    << implementationMemorySizeKB << " KB = "
-    << unusedPercent << "% Waste: $"
-    << wasteCost << "/chip" << endl;
+            << fixed << setprecision(2)
+            << unusedCacheKB << "KB / "
+            << implementationMemorySizeKB << " KB = "
+            << unusedPercent << "% Waste: $"
+            << wasteCost << "/chip" << endl;
     cout << left << setw(32) << "Unused Cache Blocks: " << unusedBlocks << " / " << totalBlocks << endl;
 
     // NOTE: A cache access is any time an address maps to a row.
@@ -1210,10 +1207,10 @@ int main(int argc, char *argv[]) {
     // The 1024 KB below is the total cache size for this example
     // Waste = COST/KB * Unused KB
 
- /*------------------------------------------------------------------------------------------
- * END
- * -----------------------------------------------------------------------------------------
- */
+    /*------------------------------------------------------------------------------------------
+    * END
+    * -----------------------------------------------------------------------------------------
+    */
 
     return 0;
 }
