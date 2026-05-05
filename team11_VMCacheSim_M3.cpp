@@ -1128,7 +1128,6 @@ int main(int argc, char *argv[]) {
     cout << endl;
     cout << left << setw(32) << "        Total Page Faults:" << totalPageFaults << endl;
     cout << endl;
-    cout << endl;
     cout << "Page Table Usage Per Process:" << endl;
     cout << "------------------------------" << endl;
     for (int i = 0; i < traceCount; i++) {
@@ -1170,9 +1169,7 @@ int main(int argc, char *argv[]) {
     cout << left << setw(32) << "--- Compulsory Misses:  " << cacheStats.compulsoryMisses << endl; // it was not valid
     cout << left << setw(32) << "--- Conflict Misses: " << cacheStats.conflictMisses << endl;
     // it was valid, tag did not match
-    cout << endl;
-    cout << endl;
-    cout << left << setw(32) << "\n***** ***** CACCHE HIT & MISS RATE: ***** *****" << endl;
+    cout << left << setw(32) << "\n***** ***** CACHE HIT & MISS RATE: ***** *****" << endl;
     cout << endl;
     cout << left << setw(32) << "Hit Rate: " << fixed << setprecision(4) << cacheStats.hitRate << "%\n";
     // (Hits * 100) / total accesses
